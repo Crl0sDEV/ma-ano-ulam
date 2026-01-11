@@ -1,18 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Loader2, ChefHat, Clock, Flame, Utensils, Copy, Check } from "lucide-react";
+import { Loader2, ChefHat, Clock, Flame, Utensils, Copy, Check, Heart, BookOpen, Trash2, X } from "lucide-react";
 import { clsx } from "clsx";
-
-interface Recipe {
-  dishName: string;
-  momMessage: string;
-  ingredientsList: string[];
-  steps: string[];
-  cookingTime: string;
-  difficulty: string;
-}
+import type { Recipe } from "@/lib/index";
 
 const MOODS = [
   { id: "Kahit ano", label: "Kahit ano" },
@@ -29,6 +21,18 @@ export default function Home() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [copied, setCopied] = useState(false);
+  
+  // States para sa Favorites
+  const [favorites, setFavorites] = useState<Recipe[]>([]);
+  const [showFavorites, setShowFavorites] = useState(false);
+
+  // 1. Load Favorites from LocalStorage on Mount
+  useEffect(() => {
+    const saved = localStorage.getItem("mama-favorites");
+    if (saved) {
+      setFavorites(JSON.parse(saved));
+    }
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -50,7 +54,13 @@ export default function Home() {
 
       if (!res.ok) throw new Error(data.error || "Naku, may problema sa kusina.");
 
-      setRecipe(data);
+      // Add unique ID and metadata
+      setRecipe({
+        ...data,
+        id: Date.now().toString(),
+        moodUsed: mood
+      });
+
     } catch (err) {
       if (err instanceof Error) setError(err.message);
       else setError("May hindi inaasahang error na nangyari.");
@@ -59,7 +69,6 @@ export default function Home() {
     }
   };
 
-  // Function para mag-copy sa clipboard
   const handleCopy = () => {
     if (!recipe) return;
     const text = `🍽️ ${recipe.dishName}\n\n"${recipe.momMessage}"\n\n🛒 Ingredients:\n${recipe.ingredientsList.join("\n")}\n\n🔥 Steps:\n${recipe.steps.join("\n")}`;
@@ -68,21 +77,64 @@ export default function Home() {
     setTimeout(() => setCopied(false), 2000);
   };
 
+  // 2. Logic para mag-save / remove ng favorite
+  const toggleFavorite = (currentRecipe: Recipe) => {
+    const isFavorited = favorites.some((fav) => fav.dishName === currentRecipe.dishName);
+    
+    let newFavorites;
+    if (isFavorited) {
+      // Remove
+      newFavorites = favorites.filter((fav) => fav.dishName !== currentRecipe.dishName);
+    } else {
+      // Add
+      const recipeToSave = { ...currentRecipe, dateSaved: new Date().toLocaleDateString() };
+      newFavorites = [recipeToSave, ...favorites];
+    }
+
+    setFavorites(newFavorites);
+    localStorage.setItem("mama-favorites", JSON.stringify(newFavorites));
+  };
+
+  const deleteFavorite = (id: string, e: React.MouseEvent) => {
+    e.stopPropagation(); // Para di mag-trigger yung pag-select
+    const newFavorites = favorites.filter((fav) => fav.id !== id);
+    setFavorites(newFavorites);
+    localStorage.setItem("mama-favorites", JSON.stringify(newFavorites));
+  };
+
+  const isCurrentRecipeFavorited = recipe ? favorites.some(fav => fav.dishName === recipe.dishName) : false;
+
   return (
-    <main className="min-h-screen bg-stone-50 text-neutral-800 p-6 flex flex-col items-center font-sans">
+    <main className="min-h-screen bg-stone-50 text-neutral-800 p-6 flex flex-col items-center font-sans relative">
       
-      {/* HEADER */}
+      {/* HEADER WITH COOKBOOK BUTTON */}
       <motion.div 
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
-        className="max-w-md w-full text-center mt-10 mb-8"
+        className="max-w-md w-full text-center mt-6 mb-8 relative"
       >
+        {/* Cookbook Button */}
+        <button 
+          onClick={() => setShowFavorites(true)}
+          className="absolute right-0 top-0 p-2 text-orange-800 hover:bg-orange-100 rounded-full transition-colors flex flex-col items-center gap-1"
+          title="My Kusina"
+        >
+          <div className="relative">
+            <BookOpen size={24} />
+            {favorites.length > 0 && (
+              <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] w-4 h-4 rounded-full flex items-center justify-center font-bold">
+                {favorites.length}
+              </span>
+            )}
+          </div>
+          <span className="text-[10px] font-bold uppercase tracking-wider">Kusina</span>
+        </button>
+
         <div className="flex justify-center mb-4">
           <div className="bg-orange-500 p-4 rounded-full text-white shadow-xl shadow-orange-200 rotate-3">
             <ChefHat size={40} />
           </div>
         </div>
-        {/* GAMITIN ANG NEW FONT DITO */}
         <h1 className="text-5xl font-bold tracking-tight text-orange-900 mb-2 font-hand">
           Ma, Anong Ulam?
         </h1>
@@ -141,7 +193,6 @@ export default function Home() {
           </button>
         </form>
 
-        {/* ERROR */}
         {error && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="mt-4 p-4 bg-red-50 text-red-600 rounded-lg text-center text-sm">
             {error}
@@ -152,7 +203,6 @@ export default function Home() {
       {/* RESULT AREA */}
       <div className="max-w-md w-full mt-8 pb-20">
         
-        {/* SKELETON LOADER (Display habang loading) */}
         {loading && (
            <motion.div 
              initial={{ opacity: 0 }} 
@@ -174,7 +224,6 @@ export default function Home() {
            </motion.div>
         )}
 
-        {/* RECIPE CARD */}
         <AnimatePresence>
           {recipe && !loading && (
             <motion.div
@@ -183,22 +232,38 @@ export default function Home() {
               exit={{ opacity: 0, scale: 0.95 }}
               className="bg-white rounded-3xl shadow-xl overflow-hidden border border-stone-100 relative group"
             >
-              {/* Copy Button */}
-              <button 
-                onClick={handleCopy}
-                className="absolute top-4 right-4 p-2 bg-white/50 hover:bg-white backdrop-blur-sm rounded-full text-orange-700 transition-all border border-orange-100 hover:shadow-md z-10"
-                title="Copy Recipe"
-              >
-                {copied ? <Check size={20} /> : <Copy size={20} />}
-              </button>
+              {/* ACTION BUTTONS */}
+              <div className="absolute top-4 right-4 z-10 flex gap-2">
+                 {/* Favorite Button */}
+                 <button 
+                  onClick={() => toggleFavorite(recipe)}
+                  className={clsx(
+                    "p-2 backdrop-blur-sm rounded-full transition-all border shadow-sm active:scale-90",
+                    isCurrentRecipeFavorited 
+                      ? "bg-red-500 border-red-500 text-white" 
+                      : "bg-white/50 hover:bg-white border-orange-100 text-stone-400 hover:text-red-500"
+                  )}
+                  title={isCurrentRecipeFavorited ? "Remove from Favorites" : "Add to Favorites"}
+                >
+                  <Heart size={20} className={isCurrentRecipeFavorited ? "fill-current" : ""} />
+                </button>
+
+                {/* Copy Button */}
+                <button 
+                  onClick={handleCopy}
+                  className="p-2 bg-white/50 hover:bg-white backdrop-blur-sm rounded-full text-orange-700 transition-all border border-orange-100 hover:shadow-md"
+                  title="Copy Recipe"
+                >
+                  {copied ? <Check size={20} /> : <Copy size={20} />}
+                </button>
+              </div>
 
               <div className="bg-orange-50 p-6 border-b border-orange-100 relative overflow-hidden">
-                {/* Decorative Pattern Background */}
                 <div className="absolute top-0 right-0 -mt-4 -mr-4 w-24 h-24 bg-orange-200 rounded-full opacity-20 blur-2xl"></div>
                 
-                <h2 className="text-3xl font-bold text-orange-900 leading-tight font-hand mb-2">{recipe.dishName}</h2>
+                <h2 className="text-3xl font-bold text-orange-900 leading-tight font-hand mb-2 pr-20">{recipe.dishName}</h2>
                 <div className="inline-block px-3 py-1 bg-white/60 border border-orange-200 rounded-full text-xs font-bold text-orange-800 mb-4">
-                  {mood}
+                  {recipe.moodUsed || mood}
                 </div>
                 <p className="text-orange-800 italic text-lg leading-relaxed">&quot;{recipe.momMessage}&quot;</p>
                 
@@ -241,14 +306,83 @@ export default function Home() {
                   </div>
                 </div>
               </div>
-              
-              <div className="bg-stone-50 p-4 text-center text-stone-400 text-xs font-medium">
-                Generated by &quot;Ma, Anong Ulam?&quot; AI
-              </div>
             </motion.div>
           )}
         </AnimatePresence>
       </div>
+
+      {/* FAVORITES MODAL (MY KUSINA) */}
+      <AnimatePresence>
+        {showFavorites && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            {/* Backdrop */}
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setShowFavorites(false)}
+              className="absolute inset-0 bg-stone-900/40 backdrop-blur-sm"
+            />
+            
+            {/* Modal Content */}
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              className="bg-white rounded-3xl w-full max-w-md max-h-[80vh] overflow-hidden shadow-2xl relative z-10 flex flex-col"
+            >
+              <div className="p-6 border-b border-stone-100 flex justify-between items-center bg-orange-50">
+                <h2 className="text-2xl font-bold text-orange-900 font-hand flex items-center gap-2">
+                  <BookOpen size={24}/> My Kusina
+                </h2>
+                <button 
+                  onClick={() => setShowFavorites(false)}
+                  className="p-2 bg-white/50 hover:bg-white rounded-full text-stone-500 transition-all"
+                >
+                  <X size={20} />
+                </button>
+              </div>
+
+              <div className="overflow-y-auto p-4 space-y-3 flex-1">
+                {favorites.length === 0 ? (
+                  <div className="text-center py-10 text-stone-400">
+                    <p className="mb-2">Wala pang laman ang cookbook mo.</p>
+                    <p className="text-sm">Mag-heart ka ng recipe para ma-save dito!</p>
+                  </div>
+                ) : (
+                  favorites.map((fav) => (
+                    <div 
+                      key={fav.id}
+                      onClick={() => {
+                        setRecipe(fav);
+                        setShowFavorites(false);
+                      }}
+                      className="p-4 rounded-xl border border-stone-100 bg-white hover:border-orange-200 hover:shadow-md transition-all cursor-pointer group flex justify-between items-start"
+                    >
+                      <div>
+                        <h3 className="font-bold text-stone-800 group-hover:text-orange-700 transition-colors">
+                          {fav.dishName}
+                        </h3>
+                        <p className="text-xs text-stone-400 mt-1">Saved: {fav.dateSaved}</p>
+                        <span className="text-[10px] font-bold uppercase tracking-wider bg-stone-100 text-stone-500 px-2 py-0.5 rounded-full mt-2 inline-block">
+                          {fav.moodUsed}
+                        </span>
+                      </div>
+                      <button 
+                        onClick={(e) => deleteFavorite(fav.id, e)}
+                        className="p-2 text-stone-300 hover:text-red-500 hover:bg-red-50 rounded-full transition-all"
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                    </div>
+                  ))
+                )}
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
     </main>
   );
 }
