@@ -20,7 +20,7 @@ import {
 } from "lucide-react";
 import { clsx } from "clsx";
 import { toPng } from "html-to-image";
-import type { Recipe } from "@/lib/index";
+import type { Recipe } from "@/types/index";
 
 const MOODS = [
   { id: "Kahit ano", label: "Kahit ano" },
