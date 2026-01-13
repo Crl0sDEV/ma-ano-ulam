@@ -3,7 +3,6 @@ import { model } from '@/lib/gemini';
 
 export async function POST(req: Request) {
   try {
-    // 1. Tanggapin na natin ang 'mood' galing sa frontend
     const { ingredients, mood } = await req.json();
 
     if (!ingredients) {
@@ -13,7 +12,6 @@ export async function POST(req: Request) {
       );
     }
 
-    // 2. I-inject ang mood sa prompt
     const prompt = `
       You are a caring but slightly naggy Filipino mother/tita. 
       The user (your "anak") has these ingredients: "${ingredients}".
