@@ -1,8 +1,36 @@
 import { NextResponse } from 'next/server';
 import { model } from '@/lib/gemini';
+import { Ratelimit } from "@upstash/ratelimit";
+import { Redis } from "@upstash/redis";
+
+// 1. Initialize Ratelimiter sa labas ng handler para ma-reuse
+// Setup: 3 requests per 1 minute (Pwede mo i-adjust itong "3" at "1 m" depende sa gusto mo)
+const ratelimit = new Ratelimit({
+  redis: Redis.fromEnv(),
+  limiter: Ratelimit.slidingWindow(3, "1 m"),
+  analytics: true,
+});
 
 export async function POST(req: Request) {
   try {
+    // 2. Kunin ang IP Address ng User
+    // Ginagamit natin ang headers kasi nasa serverless/edge environment tayo
+    const ip = req.headers.get("x-forwarded-for") || 
+               req.headers.get("x-real-ip") || 
+               "127.0.0.1";
+
+    // 3. I-check kung pasok pa sa limit
+    const { success } = await ratelimit.limit(ip);
+
+    if (!success) {
+      // Kung sumobra, ito isasagot ni Mama (429 Too Many Requests)
+      return NextResponse.json(
+        { error: 'Hinay-hinay lang anak! Masyado kang mabilis magtanong. Pahinga muna ng 1 minute.' },
+        { status: 429 }
+      );
+    }
+
+    // --- ORIGINAL LOGIC NATIN SA BABA ---
     const { ingredients, mood } = await req.json();
 
     if (!ingredients) {
