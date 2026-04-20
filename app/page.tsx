@@ -120,7 +120,6 @@ export default function Home() {
         <h1 className="text-5xl font-bold tracking-tight text-orange-900 mb-2 font-hand">Ma, Anong Ulam?</h1>
         <p className="text-stone-500 mb-5">Sabihin mo kung anong laman ng ref, si Mama na bahala.</p>
 
-        {/* AYAN BOSS, NILIPAT NATIN SA ILALIM PARA MAS MALINIS */}
         <div className="flex justify-center mb-2">
           <Link href="/planner" className="bg-orange-100 px-5 py-2 rounded-full text-sm font-bold text-orange-700 hover:bg-orange-200 transition-colors flex items-center gap-2 shadow-sm border border-orange-200 active:scale-95">
             <CalendarDays size={18} /> Try natin ang Weekly Planner!
