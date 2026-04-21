@@ -127,14 +127,12 @@ export default function Home() {
         </div>
       </motion.div>
 
-      {/* FORM COMPONENT */}
       <RecipeForm 
         ingredients={ingredients} setIngredients={setIngredients} 
         mood={mood} setMood={setMood} 
         loading={loading} error={error} onSubmit={handleSubmit} 
       />
 
-      {/* RECIPE RESULT AREA */}
       <div className="max-w-md w-full mt-8 pb-20">
         {/* Loading Skeleton */}
         {loading && (
